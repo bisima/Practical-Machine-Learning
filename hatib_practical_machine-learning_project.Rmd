@@ -80,6 +80,7 @@ cmGBM <- confusionMatrix(predGBM, testing$classe)
 cmLDA <- confusionMatrix(predLDA, testing$classe)
 results <- data.frame(Model = c('Random Forest', 'Boosting', 'Linear Discriminant Analysis'),
                       Aaccuracy =rbind(cmRF$overall[1],cmGBM$overall[1],cmLDA$overall[1]))
+modelRF
 print(results)
 ```
 
@@ -91,6 +92,7 @@ Hence the study used Random Forrest model to predict a ***classe*** for each of 
 predVal <- predict(modelRF,newdata=validationData) # Predict new data
 predVal <- data.frame(predVal) # Convert to data frame
 names(predVal) <- c('Predicted Classe') # Name the column
+cmRF
 print(predVal)
 ```
 
