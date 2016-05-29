@@ -1,0 +1,104 @@
+---
+output: html_document
+---
+## Practical Machine Learning: Prediction Assignment WriteUp
+***Habibu Atib (May 25, 2016)***
+
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. Participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [see the section on the Weight Lifting Exercise Dataset](http://groupware.les.inf.puc-rio.br/har).
+
+## Objective
+
+The goal of this project is to predict the manner in which the participants did exercise. This study used data from accelerometers on the belt, forearm, arm and dumbell of 6 participants. The data used in this study can be downloaded from **[pml-training.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)** and **[pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv).**
+
+The study performed prediction using 3 algorithms (gradient boosting, random forrest and Linear Discriminant Analysis). RandomForrest slightly out performed the other predictive algorithm. **Confusion Matrix** was used to determine the performance of fitted models.
+
+### Data
+
+The raw data is provided in two files, pml-training.csv and pml-testing.csv.
+```{r results='hide', tidy=FALSE, message=FALSE}
+library(caret)
+trainURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+pml.training <- trainURL
+validateURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+pml.testing <- validateURL
+modelingData <- read.csv(pml.training, stringsAsFactors=FALSE, header=TRUE)
+validationData <- read.csv(pml.testing, stringsAsFactors=FALSE, header=TRUE)
+```
+The training data was used to create predictive model and testing data was kept for validating the predictive model.
+
+## Preprocessing and Data Cleaning & Preparation
+Quick review of data as shown in figure in appendix 1 you notice that column 1:7 holds partificipant profile & timestamps data which is not required for prediction. Hence eliminated from the data to be used for prediction. 
+```{r include=TRUE}
+modelData <- modelingData[,-c(1:7)]
+```
+Eliminate non numeric fields
+```{r include=TRUE}
+modelData <- modelData[,sapply(modelData, is.numeric)]
+```
+Eliminate null fields
+```{r include=TRUE}
+e <- sapply(names(modelData), function(x) all(!is.na(modelData[,x])==TRUE)) # determine whether columns is null or not 
+f <- names(e)[e==TRUE] # Column names for non null columns
+modelData <- modelData[,c(f)] # Data without null columns
+modelNames <- names(modelData) # Column names for numeric fields.
+processedData <- modelingData[,c(modelNames,'classe')] # Select numeric fields and response column(classe)
+```
+
+## Split processed data into training and testing
+
+```{r include=TRUE}
+set.seed(3433)
+inTrain <- createDataPartition(y = processedData$classe, p = 0.7, list = FALSE)
+training <- processedData[inTrain, ]
+testing <- processedData[-inTrain, ]
+```
+
+## Model Training and applied Cross Validation on each Model with K=5
+In this study trained the model using RandomForest, Boosting and LDA
+```{r results='hide', tidy=FALSE, message=FALSE}
+set.seed(62433)
+fitC <- trainControl(method='cv',number=5)
+modelRF <- train(classe ~ ., data = training, trControl=fitC, method='rf',ntree=100)
+modelGBM <- train(classe ~ ., data = training, trControl=fitC, method = 'gbm')
+modelLDA <- train(classe ~ ., data = training, trControl=fitC, method = 'lda')
+```
+
+## Model Evaluation: (Out of Sample Error)
+***Evaluation the fitted model using the sample test data***
+```{r results='hide', tidy=FALSE}
+predRF <- predict(modelRF,newdata=testing)
+predGBM <- predict(modelGBM,newdata=testing)
+predLDA <- predict(modelLDA,newdata=testing)
+```
+
+***Confusion matrixes (Out of Sample Error)***
+```{r echo=TRUE}
+cmRF <- confusionMatrix(predRF, testing$classe)
+cmGBM <- confusionMatrix(predGBM, testing$classe)
+cmLDA <- confusionMatrix(predLDA, testing$classe)
+results <- data.frame(Model = c('Random Forest', 'Boosting', 'Linear Discriminant Analysis'),
+                      Aaccuracy =rbind(cmRF$overall[1],cmGBM$overall[1],cmLDA$overall[1]))
+print(results)
+```
+
+## Prediction
+Random Forrest performed better than Boosting and Linear Discriminant Analyis on this dataset as seen above. 
+Hence the study used Random Forrest model to predict a ***classe*** for each of the 20 observation of validation dataset kept aside at the start of the model.
+
+```{r echo=TRUE}
+predVal <- predict(modelRF,newdata=validationData) # Predict new data
+predVal <- data.frame(predVal) # Convert to data frame
+names(predVal) <- c('Predicted Classe') # Name the column
+print(predVal)
+```
+
+## Conclusion
+The study chose random forest because it performed really well on this dataset compared to boosting and lLinear Discriminant Analysis; however if it didn't perform well the study would have modeled using ensemble model of combined model (random forest and boosting).
+
+## Appendix 1
+figure 1:
+```{r preprocess, include=TRUE}
+str(modelingData[,c(1:7)])
+```
